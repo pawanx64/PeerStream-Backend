@@ -9,7 +9,7 @@ dotenv.config();
 
 
 const corsConfig = {
-    origin: 'http://localhost:3000',
+    origin: 'https://peer-stream-frontend.vercel.app',
     credentials: true,
 };
 
