@@ -1,13 +1,11 @@
-const { Server } = require('socket.io');
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const dotenv = require('dotenv');
-const app = express();
-const WebSocket = require('ws');
+const { Server } = require('socket.io');
 dotenv.config();
 
-
+const app = express();
 const corsConfig = {
     origin: 'https://peer-stream-frontend.vercel.app',
     optionsSuccessStatus: 200,
@@ -19,84 +17,70 @@ app.get("/", (req, res) => {
     res.send("Hello World");
 });
 
-// Start server
-
-// WebRTC setup using Socket.io
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const io = new Server(server, {
+    cors: {
+        origin: 'https://peer-stream-frontend.vercel.app',
+        methods: ['GET', 'POST'],
+    }
+});
+
 const rooms = {}; // Maps ID to an array of connected clients
 
-wss.on('connection', (ws) => {
-    ws.on('message', (message) => {
-        let msg = null;
-        try {
-            msg = JSON.parse(message);
-        } catch (e) {
-            console.log('Invalid JSON', e);
-            return;
+io.on('connection', (socket) => {
+    console.log('New client connected', socket.id);
+
+    socket.on('join-room', ({ roomID }) => {
+        if (!rooms[roomID]) {
+            rooms[roomID] = new Set();
         }
 
-        const { type, roomID } = msg;
-        switch (type) {
-            case 'join-room':
-                if (!rooms[roomID]) {
-                    rooms[roomID] = new Set();
-                }
-                if (rooms[roomID].size === 2) {
-                    // Room is full, send busy message
-                    ws.send(JSON.stringify({ type: 'room-busy' }));
-                } else {
-                    rooms[roomID].add(ws);
-                    ws.roomID = roomID;
-                }
-                break;
-            case 'offer':
-                // Send offer to the other peer in the room
-                broadcastToRoom(roomID, ws, JSON.stringify(msg));
-                break;
-            case 'answer':
-                // Send answer to the other peer in the room
-                broadcastToRoom(roomID, ws, JSON.stringify(msg));
-                break;
-            case 'ice-candidate':
-                // Send new ICE candidate to the other peer in the room
-                broadcastToRoom(roomID, ws, JSON.stringify(msg));
-                break;
-            case 'leave-call':
-                // Broadcast the 'leave-call' message to other peer in the room
-                broadcastToRoom(roomID, ws, JSON.stringify({ type: 'leave-call' }));
-                break;
+        if (rooms[roomID].size === 2) {
+            socket.emit('room-busy');
+        } else {
+            rooms[roomID].add(socket.id);
+            socket.join(roomID);
+            socket.roomID = roomID;
+            console.log(`Socket ${socket.id} joined room ${roomID}`);
         }
     });
 
-    ws.on('close', () => {
-        // Remove the WebSocket from the room it was in
-        const { roomID } = ws;
+    socket.on('offer', ({ roomID, offer }) => {
+        socket.to(roomID).emit('offer', { offer });
+    });
+
+    socket.on('answer', ({ roomID, answer }) => {
+        socket.to(roomID).emit('answer', { answer });
+    });
+
+    socket.on('ice-candidate', ({ roomID, candidate }) => {
+        socket.to(roomID).emit('ice-candidate', { candidate });
+    });
+
+    socket.on('leave-call', () => {
+        const { roomID } = socket;
         if (rooms[roomID]) {
-            rooms[roomID].delete(ws);
+            rooms[roomID].delete(socket.id);
             if (rooms[roomID].size === 0) {
-                // Clean up room if empty
+                delete rooms[roomID];
+            }
+            socket.leave(roomID);
+            socket.to(roomID).emit('leave-call');
+        }
+    });
+
+    socket.on('disconnect', () => {
+        const { roomID } = socket;
+        if (rooms[roomID]) {
+            rooms[roomID].delete(socket.id);
+            if (rooms[roomID].size === 0) {
                 delete rooms[roomID];
             }
         }
+        console.log(`Socket ${socket.id} disconnected`);
     });
 });
 
-
-
-//Common function for handling the message broadcast to another peer in the room
-function broadcastToRoom(roomID, senderSocket, message) {
-    const peers = rooms[roomID];
-    if (peers) {
-        for (const peerSocket of peers) {
-            if (peerSocket !== senderSocket) {
-                peerSocket.send(message);
-            }
-        }
-    }
-}
-
-//error handling
 app.use((err, req, res, next) => {
     const errorMessage = err.message || "Something went wrong";
     const errorStatus = err.status || 500;
@@ -106,7 +90,7 @@ app.use((err, req, res, next) => {
         message: errorMessage,
         stack: err.stack,
     });
-})
+});
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server has started on port ${PORT}.`));
