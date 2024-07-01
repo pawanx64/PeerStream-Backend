@@ -19,11 +19,11 @@
     "rewrites": [
         {
             "source": "/api/(.*)",
-            "destination": "https://peer-stream-backend.vercel.app/"
+            "destination": "https://peer-stream-backend.vercel.app/api/$1"
         },
         {
             "source": "/(.*)",
-            "destination": "/"
+            "destination": "/index.html"
         }
     ]
 }
