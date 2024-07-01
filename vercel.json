@@ -1,15 +1,29 @@
 {
-    "version":2,
-    "builds":[
+    "version": 2,
+    "builds": [
         {
-            "src": "*.js","use":"@vercel/node"
+            "src": "*.js",
+            "use": "@vercel/node"
         }
     ],
-    "routes":[
+    "routes": [
         {
-            "src":"/(.*)",
-            "dest":"/"
+            "src": "/api/(.*)",
+            "dest": "/api/$1"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/index.html"
+        }
+    ],
+    "rewrites": [
+        {
+            "source": "/api/(.*)",
+            "destination": "https://peer-stream-backend.vercel.app/"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/"
         }
     ]
-
 }

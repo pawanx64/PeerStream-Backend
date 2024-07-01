@@ -10,7 +10,7 @@ dotenv.config();
 
 const corsConfig = {
     origin: 'https://peer-stream-frontend.vercel.app',
-    credentials: true,
+    optionsSuccessStatus: 200,
 };
 
 app.use(cors(corsConfig));
