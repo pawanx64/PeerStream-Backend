@@ -7,7 +7,7 @@ dotenv.config();
 
 const app = express();
 const corsConfig = {
-    origin: 'http://localhost:3000',
+    origin: 'https://peer-stream-frontend.vercel.app',
     optionsSuccessStatus: 200,
 };
 
@@ -20,7 +20,7 @@ app.get("/", (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: 'http://localhost:3000',
+        origin: 'https://peer-stream-frontend.vercel.app',
         methods: ['GET', 'POST'],
     }
 });
